@@ -2,9 +2,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+import { getErrorMessage } from "@/lib/api";
+import * as authService from "@/services/auth.service";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { loginSession } = useAuth();
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -14,33 +18,22 @@ export default function LoginPage() {
     setError("");
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    setTimeout(() => {
-      const storedUser = localStorage.getItem("crmUser");
-      if (!storedUser) {
-        setError("No registered user found. Please register first.");
-        setLoading(false);
-        return;
-      }
-      const user = JSON.parse(storedUser);
-      if (
-        loginData.email === user.email &&
-        loginData.password === user.password
-      ) {
-        if (user.role === "admin") {
-          router.push("/admin/dashboard");
-        } else {
-          router.push("/user/dashboard");
-        }
-      } else {
-        setError("Invalid email or password. Please try again.");
-        setLoading(false);
-      }
-    }, 600);
+    try {
+      const { token, user } = await authService.login(
+        loginData.email,
+        loginData.password,
+      );
+      loginSession(token, user);
+      router.push(user.role === "admin" ? "/admin/dashboard" : "/user/dashboard");
+    } catch (err) {
+      setError(getErrorMessage(err, "Invalid email or password. Please try again."));
+      setLoading(false);
+    }
   };
 
   return (

@@ -2,18 +2,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+import { getErrorMessage } from "@/lib/api";
+import * as authService from "@/services/auth.service";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { loginSession } = useAuth();
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
-    phone: "",
     password: "",
     confirmPassword: "",
-    role: "user",
-    department: "",
-    address: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,18 +27,31 @@ export default function RegisterPage() {
     setError("");
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match. Please try again.");
       return;
     }
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
-      localStorage.setItem("crmUser", JSON.stringify(formData));
+    setError("");
+
+    try {
+      const { token, user } = await authService.register(
+        formData.fullName.trim(),
+        formData.email.trim(),
+        formData.password,
+      );
+      loginSession(token, user);
+      router.push("/user/dashboard");
+    } catch (err) {
+      setError(getErrorMessage(err, "Registration failed. Please try again."));
       setLoading(false);
-      router.push("/login");
-    }, 600);
+    }
   };
 
   const inputClass =
@@ -127,7 +140,8 @@ export default function RegisterPage() {
               Create your account
             </h1>
             <p className="text-sm text-gray-400">
-              Join CRM Lite and start managing your pipeline
+              Join CRM Lite and start managing your pipeline. New accounts are
+              created as sales users.
             </p>
           </div>
 
@@ -190,36 +204,7 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Row 2: Phone + Role */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Phone number</label>
-                  <input
-                    type="text"
-                    name="phone"
-                    placeholder="+1 (555) 000-0000"
-                    className={inputClass}
-                    value={formData.phone}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Role</label>
-                  <select
-                    name="role"
-                    aria-label="Select Role"
-                    className={inputClass}
-                    value={formData.role}
-                    onChange={handleChange}
-                  >
-                    <option value="user">Sales User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Row 3: Password + Confirm Password */}
+              {/* Password row */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Password</label>
@@ -245,32 +230,6 @@ export default function RegisterPage() {
                     required
                   />
                 </div>
-              </div>
-
-              {/* Department */}
-              <div>
-                <label className={labelClass}>Department / Team</label>
-                <input
-                  type="text"
-                  name="department"
-                  placeholder="e.g. Sales, Marketing"
-                  className={inputClass}
-                  value={formData.department}
-                  onChange={handleChange}
-                />
-              </div>
-
-              {/* Address */}
-              <div>
-                <label className={labelClass}>Address</label>
-                <textarea
-                  name="address"
-                  placeholder="123 Main St, City, Country"
-                  rows={2}
-                  className={`${inputClass} resize-none`}
-                  value={formData.address}
-                  onChange={handleChange}
-                />
               </div>
 
               {/* Submit */}
